@@ -1,6 +1,6 @@
-# Distributed Transaction Study
+# distributed-transaction
 
-주문 취소 및 환불 흐름을 작은 MSA처럼 나누어 실험하는 학습용 프로젝트입니다.
+분산 트랜잭션 실험실입니다. 주문 취소 및 환불 흐름을 작은 MSA처럼 나누어 직접 설계하고 비교해볼 수 있습니다.
 
 ## Services
 
