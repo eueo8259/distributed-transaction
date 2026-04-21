@@ -1,0 +1,6 @@
+rootProject.name = 'distributed-transaction'
+
+include 'common'
+include 'order-service'
+include 'inventory-service'
+include 'payment-service'
