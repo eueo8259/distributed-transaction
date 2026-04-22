@@ -8,8 +8,10 @@ import org.springframework.web.bind.annotation.RestController;
 import study.distributedtransaction.common.CancelOrderResponse;
 import study.distributedtransaction.order.domain.PurchaseOrder;
 import study.distributedtransaction.order.domain.PurchaseOrderRepository;
+import study.distributedtransaction.order.domain.TwoPhaseCancelTransaction;
 import study.distributedtransaction.order.service.CancelFailurePoint;
 import study.distributedtransaction.order.service.OrderCancelService;
+import study.distributedtransaction.order.service.TwoPhaseCancelLogService;
 
 import java.util.List;
 
@@ -18,10 +20,16 @@ public class OrderController {
 
     private final PurchaseOrderRepository orderRepository;
     private final OrderCancelService orderCancelService;
+    private final TwoPhaseCancelLogService transactionLogService;
 
-    public OrderController(PurchaseOrderRepository orderRepository, OrderCancelService orderCancelService) {
+    public OrderController(
+            PurchaseOrderRepository orderRepository,
+            OrderCancelService orderCancelService,
+            TwoPhaseCancelLogService transactionLogService
+    ) {
         this.orderRepository = orderRepository;
         this.orderCancelService = orderCancelService;
+        this.transactionLogService = transactionLogService;
     }
 
     @GetMapping("/orders")
@@ -41,5 +49,10 @@ public class OrderController {
             @RequestParam(defaultValue = "NONE") CancelFailurePoint failAt
     ) {
         return orderCancelService.cancel(orderId, failAt);
+    }
+
+    @GetMapping("/2pc/cancel-transactions")
+    public List<TwoPhaseCancelTransaction> findCancelTransactions() {
+        return transactionLogService.findAll();
     }
 }
