@@ -36,30 +36,22 @@
 
 ## Try
 
-`study/2pc` 브랜치에서는 주문 취소 API가 2PC coordinator로 동작합니다.
-
-정상 2PC 취소:
+정상 취소:
 
 ```powershell
 Invoke-RestMethod -Method Post http://localhost:8081/orders/1/cancel
 ```
 
-prepare 단계에서 payment-service 실패:
+재고 복구 후 결제 실패:
 
 ```powershell
-Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=PAYMENT_PREPARE"
+Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=PAYMENT"
 ```
 
-두 participant가 prepare 된 직후 coordinator 실패:
+재고 복구 직후 order-service 실패:
 
 ```powershell
-Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=AFTER_PREPARE"
-```
-
-commit 단계에서 payment-service 실패:
-
-```powershell
-Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=PAYMENT_COMMIT"
+Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=AFTER_INVENTORY"
 ```
 
 상태 확인:
@@ -68,9 +60,6 @@ Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=PAY
 Invoke-RestMethod http://localhost:8081/orders
 Invoke-RestMethod http://localhost:8082/inventory
 Invoke-RestMethod http://localhost:8083/payments
-Invoke-RestMethod http://localhost:8081/2pc/cancel-transactions
-Invoke-RestMethod http://localhost:8082/inventory/2pc/operations
-Invoke-RestMethod http://localhost:8083/payments/2pc/operations
 ```
 
 ## Branch Study Guide
@@ -87,13 +76,10 @@ git checkout study/saga
 
 ### 2PC
 
-이 브랜치에는 예시 구현이 들어있습니다.
-
-- order-service가 coordinator 역할을 맡습니다.
-- inventory/payment에는 `prepare`, `commit`, `rollback` endpoint가 있습니다.
-- participant는 prepare 단계에서 pending operation을 저장하고, commit 전까지 실제 재고/환불을 반영하지 않습니다.
-- prepare 이후 실패하면 rollback이 가능합니다.
-- commit 이후 실패는 이미 한 participant가 커밋했을 수 있으므로 2PC만으로는 보상할 수 없는 애매한 상태를 관찰할 수 있습니다.
+- order-service에 coordinator 역할 추가
+- inventory/payment에 `prepare`, `commit`, `rollback` endpoint 추가
+- participant DB에 pending operation 저장
+- coordinator 장애 시 pending 상태가 얼마나 오래 잠기는지 관찰
 
 ### 3PC
 
