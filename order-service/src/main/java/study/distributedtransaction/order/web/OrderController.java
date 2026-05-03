@@ -51,7 +51,7 @@ public class OrderController {
         return orderCancelService.cancel(orderId, failAt);
     }
 
-    @GetMapping("/2pc/cancel-transactions")
+    @GetMapping("/3pc/cancel-transactions")
     public List<TwoPhaseCancelTransaction> findCancelTransactions() {
         return transactionLogService.findAll();
     }

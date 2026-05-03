@@ -28,7 +28,7 @@ public class TwoPhaseInventoryController {
         this.operationRepository = operationRepository;
     }
 
-    @PostMapping("/inventory/2pc/prepare")
+    @PostMapping("/inventory/3pc/prepare")
     public TwoPhaseResponse prepare(
             @RequestBody InventoryRestoreRequest request,
             @RequestParam(defaultValue = "false") boolean fail
@@ -36,7 +36,15 @@ public class TwoPhaseInventoryController {
         return restoreService.prepare(request, fail);
     }
 
-    @PostMapping("/inventory/2pc/commit")
+    @PostMapping("/inventory/3pc/pre-commit")
+    public TwoPhaseResponse preCommit(
+            @RequestBody TwoPhaseDecisionRequest request,
+            @RequestParam(defaultValue = "false") boolean fail
+    ) {
+        return restoreService.preCommit(request.transactionId(), fail);
+    }
+
+    @PostMapping("/inventory/3pc/commit")
     public TwoPhaseResponse commit(
             @RequestBody TwoPhaseDecisionRequest request,
             @RequestParam(defaultValue = "false") boolean fail
@@ -44,12 +52,12 @@ public class TwoPhaseInventoryController {
         return restoreService.commit(request.transactionId(), fail);
     }
 
-    @PostMapping("/inventory/2pc/rollback")
+    @PostMapping("/inventory/3pc/rollback")
     public TwoPhaseResponse rollback(@RequestBody TwoPhaseDecisionRequest request) {
         return restoreService.rollback(request.transactionId());
     }
 
-    @GetMapping("/inventory/2pc/operations")
+    @GetMapping("/inventory/3pc/operations")
     public List<TwoPhaseInventoryRestoreOperation> findOperations() {
         return operationRepository.findAll();
     }

@@ -32,7 +32,7 @@ public class InventoryClient {
 
     public TwoPhaseResponse prepareRestore(InventoryRestoreRequest request, boolean fail) {
         return restClient.post()
-                .uri(uriBuilder -> uriBuilder.path("/inventory/2pc/prepare")
+                .uri(uriBuilder -> uriBuilder.path("/inventory/3pc/prepare")
                         .queryParam("fail", fail)
                         .build())
                 .body(request)
@@ -40,9 +40,19 @@ public class InventoryClient {
                 .body(TwoPhaseResponse.class);
     }
 
+    public TwoPhaseResponse preCommitRestore(String transactionId, boolean fail) {
+        return restClient.post()
+                .uri(uriBuilder -> uriBuilder.path("/inventory/3pc/pre-commit")
+                        .queryParam("fail", fail)
+                        .build())
+                .body(new TwoPhaseDecisionRequest(transactionId))
+                .retrieve()
+                .body(TwoPhaseResponse.class);
+    }
+
     public TwoPhaseResponse commitRestore(String transactionId, boolean fail) {
         return restClient.post()
-                .uri(uriBuilder -> uriBuilder.path("/inventory/2pc/commit")
+                .uri(uriBuilder -> uriBuilder.path("/inventory/3pc/commit")
                         .queryParam("fail", fail)
                         .build())
                 .body(new TwoPhaseDecisionRequest(transactionId))
@@ -52,7 +62,7 @@ public class InventoryClient {
 
     public TwoPhaseResponse rollbackRestore(String transactionId) {
         return restClient.post()
-                .uri("/inventory/2pc/rollback")
+                .uri("/inventory/3pc/rollback")
                 .body(new TwoPhaseDecisionRequest(transactionId))
                 .retrieve()
                 .body(TwoPhaseResponse.class);

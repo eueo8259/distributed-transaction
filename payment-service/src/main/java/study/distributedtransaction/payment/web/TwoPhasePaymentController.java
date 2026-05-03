@@ -28,7 +28,7 @@ public class TwoPhasePaymentController {
         this.operationRepository = operationRepository;
     }
 
-    @PostMapping("/payments/2pc/prepare")
+    @PostMapping("/payments/3pc/prepare")
     public TwoPhaseResponse prepare(
             @RequestBody PaymentRefundRequest request,
             @RequestParam(defaultValue = "false") boolean fail
@@ -36,7 +36,15 @@ public class TwoPhasePaymentController {
         return refundService.prepare(request, fail);
     }
 
-    @PostMapping("/payments/2pc/commit")
+    @PostMapping("/payments/3pc/pre-commit")
+    public TwoPhaseResponse preCommit(
+            @RequestBody TwoPhaseDecisionRequest request,
+            @RequestParam(defaultValue = "false") boolean fail
+    ) {
+        return refundService.preCommit(request.transactionId(), fail);
+    }
+
+    @PostMapping("/payments/3pc/commit")
     public TwoPhaseResponse commit(
             @RequestBody TwoPhaseDecisionRequest request,
             @RequestParam(defaultValue = "false") boolean fail
@@ -44,12 +52,12 @@ public class TwoPhasePaymentController {
         return refundService.commit(request.transactionId(), fail);
     }
 
-    @PostMapping("/payments/2pc/rollback")
+    @PostMapping("/payments/3pc/rollback")
     public TwoPhaseResponse rollback(@RequestBody TwoPhaseDecisionRequest request) {
         return refundService.rollback(request.transactionId());
     }
 
-    @GetMapping("/payments/2pc/operations")
+    @GetMapping("/payments/3pc/operations")
     public List<TwoPhasePaymentRefundOperation> findOperations() {
         return operationRepository.findAll();
     }

@@ -36,22 +36,30 @@
 
 ## Try
 
-정상 취소:
+`study/3pc` 브랜치에서는 주문 취소 API가 3PC coordinator로 동작합니다.
+
+정상 3PC 취소:
 
 ```powershell
 Invoke-RestMethod -Method Post http://localhost:8081/orders/1/cancel
 ```
 
-재고 복구 후 결제 실패:
+prepare 단계에서 payment-service 실패:
 
 ```powershell
-Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=PAYMENT"
+Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=PAYMENT_PREPARE"
 ```
 
-재고 복구 직후 order-service 실패:
+preCommit 단계에서 payment-service 실패:
 
 ```powershell
-Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=AFTER_INVENTORY"
+Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=PAYMENT_PRE_COMMIT"
+```
+
+두 participant가 preCommit 된 직후 coordinator 실패:
+
+```powershell
+Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=AFTER_PRE_COMMIT"
 ```
 
 상태 확인:
@@ -60,6 +68,9 @@ Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=AFT
 Invoke-RestMethod http://localhost:8081/orders
 Invoke-RestMethod http://localhost:8082/inventory
 Invoke-RestMethod http://localhost:8083/payments
+Invoke-RestMethod http://localhost:8081/3pc/cancel-transactions
+Invoke-RestMethod http://localhost:8082/inventory/3pc/operations
+Invoke-RestMethod http://localhost:8083/payments/3pc/operations
 ```
 
 ## Branch Study Guide
@@ -83,9 +94,13 @@ git checkout study/saga
 
 ### 3PC
 
-- 2PC의 `prepare` 뒤에 `preCommit` 단계 추가
-- timeout 처리와 participant 자율 결정 로직 추가
-- 네트워크 분리 상황에서 정말 blocking이 사라지는지 한계를 관찰
+이 브랜치에는 예시 구현이 들어있습니다.
+
+- order-service가 coordinator 역할을 맡습니다.
+- inventory/payment에는 `prepare`, `preCommit`, `commit`, `rollback` endpoint가 있습니다.
+- participant는 prepare 단계에서 pending operation을 저장하고, preCommit 단계에서 `PRE_COMMITTED`로 전환합니다.
+- `PRE_COMMITTED` 상태가 일정 시간 지나면 participant가 자율적으로 commit합니다.
+- 3PC도 네트워크 분리와 외부 시스템 지연을 완전히 없애지는 못하므로, timeout 기반 자율 결정의 한계를 함께 관찰합니다.
 
 ### Saga
 

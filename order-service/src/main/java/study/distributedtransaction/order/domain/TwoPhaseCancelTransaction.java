@@ -14,8 +14,16 @@ public class TwoPhaseCancelTransaction {
     private String transactionId;
 
     private Long orderId;
+
+    // prepare phase 성공 여부. 여기까지는 실패 시 rollback 가능한 준비 상태로 본다.
     private boolean inventoryPrepared;
     private boolean paymentPrepared;
+
+    // preCommit phase 성공 여부. 여기부터는 participant가 timeout 후 자율 commit할 수 있는 상태로 본다.
+    private boolean inventoryPreCommitted;
+    private boolean paymentPreCommitted;
+
+    // doCommit phase 성공 여부. 실제 재고/결제 데이터가 반영된 participant를 표시한다.
     private boolean inventoryCommitted;
     private boolean paymentCommitted;
 
@@ -49,6 +57,21 @@ public class TwoPhaseCancelTransaction {
 
     public void markPrepared() {
         this.status = TwoPhaseCancelStatus.PREPARED;
+        touch();
+    }
+
+    public void markInventoryPreCommitted() {
+        this.inventoryPreCommitted = true;
+        touch();
+    }
+
+    public void markPaymentPreCommitted() {
+        this.paymentPreCommitted = true;
+        touch();
+    }
+
+    public void markPreCommitted() {
+        this.status = TwoPhaseCancelStatus.PRE_COMMITTED;
         touch();
     }
 
@@ -97,6 +120,14 @@ public class TwoPhaseCancelTransaction {
 
     public boolean isPaymentPrepared() {
         return paymentPrepared;
+    }
+
+    public boolean isInventoryPreCommitted() {
+        return inventoryPreCommitted;
+    }
+
+    public boolean isPaymentPreCommitted() {
+        return paymentPreCommitted;
     }
 
     public boolean isInventoryCommitted() {

@@ -21,7 +21,11 @@ public class TwoPhasePaymentRefundOperation {
     @Enumerated(EnumType.STRING)
     private TwoPhasePaymentStatus status;
 
+    // PREPARED: coordinator가 작업 가능 여부를 확인한 시각.
     private Instant preparedAt;
+    // PRE_COMMITTED: coordinator가 commit 방향 결정을 알린 시각. timeout 자율 commit의 기준이 된다.
+    private Instant preCommittedAt;
+    // COMMITTED 또는 ROLLED_BACK으로 최종 결정된 시각.
     private Instant completedAt;
 
     protected TwoPhasePaymentRefundOperation() {
@@ -39,6 +43,11 @@ public class TwoPhasePaymentRefundOperation {
     public void commit() {
         this.status = TwoPhasePaymentStatus.COMMITTED;
         this.completedAt = Instant.now();
+    }
+
+    public void preCommit() {
+        this.status = TwoPhasePaymentStatus.PRE_COMMITTED;
+        this.preCommittedAt = Instant.now();
     }
 
     public void rollback() {
@@ -68,6 +77,10 @@ public class TwoPhasePaymentRefundOperation {
 
     public Instant getPreparedAt() {
         return preparedAt;
+    }
+
+    public Instant getPreCommittedAt() {
+        return preCommittedAt;
     }
 
     public Instant getCompletedAt() {

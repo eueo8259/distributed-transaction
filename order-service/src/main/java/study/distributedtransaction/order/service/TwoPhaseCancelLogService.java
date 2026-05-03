@@ -37,6 +37,21 @@ public class TwoPhaseCancelLogService {
     }
 
     @Transactional
+    public void markInventoryPreCommitted(String transactionId) {
+        find(transactionId).markInventoryPreCommitted();
+    }
+
+    @Transactional
+    public void markPaymentPreCommitted(String transactionId) {
+        find(transactionId).markPaymentPreCommitted();
+    }
+
+    @Transactional
+    public void markPreCommitted(String transactionId) {
+        find(transactionId).markPreCommitted();
+    }
+
+    @Transactional
     public void markInventoryCommitted(String transactionId) {
         find(transactionId).markInventoryCommitted();
     }

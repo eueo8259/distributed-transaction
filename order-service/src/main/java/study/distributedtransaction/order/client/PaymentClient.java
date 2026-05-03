@@ -32,7 +32,7 @@ public class PaymentClient {
 
     public TwoPhaseResponse prepareRefund(PaymentRefundRequest request, boolean fail) {
         return restClient.post()
-                .uri(uriBuilder -> uriBuilder.path("/payments/2pc/prepare")
+                .uri(uriBuilder -> uriBuilder.path("/payments/3pc/prepare")
                         .queryParam("fail", fail)
                         .build())
                 .body(request)
@@ -40,9 +40,19 @@ public class PaymentClient {
                 .body(TwoPhaseResponse.class);
     }
 
+    public TwoPhaseResponse preCommitRefund(String transactionId, boolean fail) {
+        return restClient.post()
+                .uri(uriBuilder -> uriBuilder.path("/payments/3pc/pre-commit")
+                        .queryParam("fail", fail)
+                        .build())
+                .body(new TwoPhaseDecisionRequest(transactionId))
+                .retrieve()
+                .body(TwoPhaseResponse.class);
+    }
+
     public TwoPhaseResponse commitRefund(String transactionId, boolean fail) {
         return restClient.post()
-                .uri(uriBuilder -> uriBuilder.path("/payments/2pc/commit")
+                .uri(uriBuilder -> uriBuilder.path("/payments/3pc/commit")
                         .queryParam("fail", fail)
                         .build())
                 .body(new TwoPhaseDecisionRequest(transactionId))
@@ -52,7 +62,7 @@ public class PaymentClient {
 
     public TwoPhaseResponse rollbackRefund(String transactionId) {
         return restClient.post()
-                .uri("/payments/2pc/rollback")
+                .uri("/payments/3pc/rollback")
                 .body(new TwoPhaseDecisionRequest(transactionId))
                 .retrieve()
                 .body(TwoPhaseResponse.class);
