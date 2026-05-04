@@ -4,5 +4,6 @@ public enum CancelFailurePoint {
     NONE,
     INVENTORY,
     PAYMENT,
-    AFTER_INVENTORY
+    AFTER_INVENTORY,
+    INVENTORY_COMPENSATION
 }

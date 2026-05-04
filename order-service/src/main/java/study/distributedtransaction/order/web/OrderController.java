@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import study.distributedtransaction.common.CancelOrderResponse;
+import study.distributedtransaction.order.domain.CancelOrderSaga;
 import study.distributedtransaction.order.domain.PurchaseOrder;
 import study.distributedtransaction.order.domain.PurchaseOrderRepository;
 import study.distributedtransaction.order.service.CancelFailurePoint;
@@ -41,5 +42,10 @@ public class OrderController {
             @RequestParam(defaultValue = "NONE") CancelFailurePoint failAt
     ) {
         return orderCancelService.cancel(orderId, failAt);
+    }
+
+    @GetMapping("/saga/cancel-orders")
+    public List<CancelOrderSaga> findSagas() {
+        return orderCancelService.findSagas();
     }
 }

@@ -23,6 +23,13 @@ public class InventoryItem {
         this.stock += quantity;
     }
 
+    public void deduct(int quantity) {
+        if (stock < quantity) {
+            throw new IllegalStateException("Not enough stock to deduct. sku=" + sku + ", stock=" + stock + ", quantity=" + quantity);
+        }
+        this.stock -= quantity;
+    }
+
     public String getSku() {
         return sku;
     }

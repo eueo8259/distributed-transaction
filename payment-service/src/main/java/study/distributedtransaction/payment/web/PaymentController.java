@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RestController;
 import study.distributedtransaction.common.PaymentRefundRequest;
 import study.distributedtransaction.common.PaymentRefundResponse;
 import study.distributedtransaction.payment.domain.Payment;
+import study.distributedtransaction.payment.domain.PaymentRefundOperation;
+import study.distributedtransaction.payment.domain.PaymentRefundOperationRepository;
 import study.distributedtransaction.payment.domain.PaymentRepository;
 import study.distributedtransaction.payment.service.PaymentRefundService;
 
@@ -17,10 +19,16 @@ import java.util.List;
 public class PaymentController {
 
     private final PaymentRepository paymentRepository;
+    private final PaymentRefundOperationRepository operationRepository;
     private final PaymentRefundService refundService;
 
-    public PaymentController(PaymentRepository paymentRepository, PaymentRefundService refundService) {
+    public PaymentController(
+            PaymentRepository paymentRepository,
+            PaymentRefundOperationRepository operationRepository,
+            PaymentRefundService refundService
+    ) {
         this.paymentRepository = paymentRepository;
+        this.operationRepository = operationRepository;
         this.refundService = refundService;
     }
 
@@ -35,5 +43,10 @@ public class PaymentController {
             @RequestParam(defaultValue = "false") boolean fail
     ) {
         return refundService.refund(request, fail);
+    }
+
+    @GetMapping("/payments/refund-operations")
+    public List<PaymentRefundOperation> findRefundOperations() {
+        return operationRepository.findAll();
     }
 }

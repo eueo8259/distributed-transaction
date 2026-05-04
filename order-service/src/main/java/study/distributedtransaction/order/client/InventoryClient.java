@@ -3,6 +3,8 @@ package study.distributedtransaction.order.client;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import study.distributedtransaction.common.InventoryDeductRequest;
+import study.distributedtransaction.common.InventoryDeductResponse;
 import study.distributedtransaction.common.InventoryRestoreRequest;
 import study.distributedtransaction.common.InventoryRestoreResponse;
 
@@ -26,5 +28,15 @@ public class InventoryClient {
                 .body(request)
                 .retrieve()
                 .body(InventoryRestoreResponse.class);
+    }
+
+    public InventoryDeductResponse deduct(InventoryDeductRequest request, boolean fail) {
+        return restClient.post()
+                .uri(uriBuilder -> uriBuilder.path("/inventory/deduct")
+                        .queryParam("fail", fail)
+                        .build())
+                .body(request)
+                .retrieve()
+                .body(InventoryDeductResponse.class);
     }
 }

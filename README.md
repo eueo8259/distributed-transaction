@@ -15,14 +15,16 @@
 
 ## Current Flow
 
-기본 스켈레톤은 의도적으로 단순한 순차 호출 방식입니다.
+`study/saga-orchestration` 브랜치는 Saga의 orchestration 방식을 실험합니다.
+order-service가 Saga orchestrator 역할을 맡아 각 서비스의 로컬 트랜잭션과 보상 트랜잭션을 명시적으로 지시합니다.
 
-1. order-service: 주문을 `CANCEL_REQUESTED`로 변경
-2. order-service -> inventory-service: 재고 복구
-3. order-service -> payment-service: 환불
-4. order-service: 주문을 `CANCELLED`로 변경
+1. order-service: 주문을 `CANCEL_REQUESTED`로 변경하고 Saga 로그 생성
+2. order-service -> inventory-service: 재고 복구 명령
+3. order-service -> payment-service: 환불 명령
+4. 환불 성공 시 order-service가 주문을 `CANCELLED`로 변경
+5. 환불 실패 시 order-service가 inventory-service에 재고 차감 보상 명령
 
-중간 실패를 넣으면 각 서비스의 DB 상태가 어긋납니다. 이 상태를 관찰한 뒤 2PC, 3PC, Saga 브랜치에서 직접 설계를 바꿔보는 것이 목표입니다.
+각 서비스는 자기 로컬 트랜잭션만 짧게 수행하고, 전체 흐름과 보상 판단은 orchestrator가 관리합니다.
 
 ## Run
 
@@ -36,22 +38,22 @@
 
 ## Try
 
-정상 취소:
+정상 Saga 취소:
 
 ```powershell
 Invoke-RestMethod -Method Post http://localhost:8081/orders/1/cancel
 ```
 
-재고 복구 후 결제 실패:
+재고 복구 후 결제 실패 및 재고 보상:
 
 ```powershell
 Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=PAYMENT"
 ```
 
-재고 복구 직후 order-service 실패:
+재고 보상 실패:
 
 ```powershell
-Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=AFTER_INVENTORY"
+Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=INVENTORY_COMPENSATION"
 ```
 
 상태 확인:
@@ -60,6 +62,10 @@ Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=AFT
 Invoke-RestMethod http://localhost:8081/orders
 Invoke-RestMethod http://localhost:8082/inventory
 Invoke-RestMethod http://localhost:8083/payments
+Invoke-RestMethod http://localhost:8081/saga/cancel-orders
+Invoke-RestMethod http://localhost:8082/inventory/restore-operations
+Invoke-RestMethod http://localhost:8082/inventory/deduct-operations
+Invoke-RestMethod http://localhost:8083/payments/refund-operations
 ```
 
 ## Branch Study Guide
@@ -69,7 +75,7 @@ Invoke-RestMethod http://localhost:8083/payments
 ```powershell
 git checkout study/2pc
 git checkout study/3pc
-git checkout study/saga
+git checkout study/saga-orchestration
 ```
 
 각 브랜치에서 아래처럼 설계를 바꿔보면 차이가 잘 보입니다.
@@ -90,8 +96,9 @@ git checkout study/saga
 ### Saga
 
 - `CancelOrderSaga` 상태 테이블 추가
-- 재고 복구 성공 후 환불 실패 시 `restore inventory`의 보상 트랜잭션으로 `deduct inventory` 설계
-- orchestration 방식과 choreography 방식 중 하나를 선택해 이벤트/명령 흐름 비교
+- orchestration 방식으로 order-service가 전체 Saga 흐름 제어
+- 재고 복구 성공 후 환불 실패 시 `deduct inventory` 보상 트랜잭션 수행
+- choreography 브랜치와 비교하면 중앙 제어는 명확하지만 orchestrator 장애 영향이 커짐
 
 ## H2 Console
 
