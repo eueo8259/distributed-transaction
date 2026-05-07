@@ -34,7 +34,8 @@ public class OrderCancelService {
 
         // 2. 로컬 트랜잭션이 성공적으로 끝난 뒤 첫 번째 이벤트를 발행한다.
         // 이 이벤트가 inventory-service, payment-service로 이어지는 분산 Saga의 시작점이 된다.
-        inventoryEventClient.publishOrderCancelRequested(createOrderCancelRequestedEvent(order, sagaId, failurePoint));
+        OrderCancelRequestedEvent orderCancelRequestedEvent = createOrderCancelRequestedEvent(order, sagaId, failurePoint);
+        inventoryEventClient.publishOrderCancelRequested(orderCancelRequestedEvent);
 
         // 3. 이 시점에는 아직 최종 성공/실패를 모른다.
         // 주문은 일단 CANCEL_REQUESTED 상태이고, 이후 이벤트 반응에 따라 최종 상태가 결정된다.
