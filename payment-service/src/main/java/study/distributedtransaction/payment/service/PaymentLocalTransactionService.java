@@ -31,7 +31,10 @@ public class PaymentLocalTransactionService {
     @Transactional
     public void refund(InventoryRestoredEvent event) {
         // payment-service 내부에서만 열리는 로컬 트랜잭션이다.
-        if ("PAYMENT_REFUND".equalsIgnoreCase(event.failurePoint())) {
+        // 보상 트랜잭션 실패를 재현하려면 먼저 환불 단계가 실패해서
+        // inventory-service의 보상 단계로 진입해야 한다.
+        if ("PAYMENT_REFUND".equalsIgnoreCase(event.failurePoint())
+                || "INVENTORY_COMPENSATE".equalsIgnoreCase(event.failurePoint())) {
             throw new IllegalStateException("Simulated payment refund failure");
         }
 
