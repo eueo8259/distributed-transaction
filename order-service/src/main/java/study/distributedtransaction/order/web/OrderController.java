@@ -40,6 +40,8 @@ public class OrderController {
             @PathVariable Long orderId,
             @RequestParam(defaultValue = "NONE") CancelFailurePoint failAt
     ) {
+        // 이 API는 Saga를 시작만 한다.
+        // 최종 완료는 다른 서비스들의 이벤트 반응이 모두 끝난 뒤 결정된다.
         return orderCancelService.cancel(orderId, failAt);
     }
 }

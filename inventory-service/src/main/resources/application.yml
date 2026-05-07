@@ -20,3 +20,9 @@ spring:
       hibernate:
         format_sql: true
     open-in-view: false
+
+services:
+  order:
+    base-url: http://localhost:8081
+  payment:
+    base-url: http://localhost:8083
