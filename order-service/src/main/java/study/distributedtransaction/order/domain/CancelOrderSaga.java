@@ -51,7 +51,7 @@ public class CancelOrderSaga {
     public void markInventoryCompensated(String reason) {
         this.inventoryCompensated = true;
         this.status = CancelOrderSagaStatus.INVENTORY_COMPENSATED;
-        this.failureReason = reason;
+        this.failureReason = limitFailureReason(reason);
         touch();
     }
 
@@ -62,8 +62,15 @@ public class CancelOrderSaga {
 
     public void markFailed(String reason) {
         this.status = CancelOrderSagaStatus.FAILED;
-        this.failureReason = reason;
+        this.failureReason = limitFailureReason(reason);
         touch();
+    }
+
+    private String limitFailureReason(String reason) {
+        if (reason == null || reason.length() <= 255) {
+            return reason;
+        }
+        return reason.substring(0, 255);
     }
 
     private void touch() {

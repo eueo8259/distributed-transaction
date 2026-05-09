@@ -20,24 +20,28 @@ public class OrderCancelService {
 
     private final OrderStateService orderStateService;
     private final CancelOrderSagaRepository sagaRepository;
+    private final CancelOrderSagaStateService sagaStateService;
     private final InventoryClient inventoryClient;
     private final PaymentClient paymentClient;
 
     public OrderCancelService(
             OrderStateService orderStateService,
             CancelOrderSagaRepository sagaRepository,
+            CancelOrderSagaStateService sagaStateService,
             InventoryClient inventoryClient,
             PaymentClient paymentClient
     ) {
         this.orderStateService = orderStateService;
         this.sagaRepository = sagaRepository;
+        this.sagaStateService = sagaStateService;
         this.inventoryClient = inventoryClient;
         this.paymentClient = paymentClient;
     }
 
     public CancelOrderResponse cancel(Long orderId, CancelFailurePoint failurePoint) {
-        // Orchestration 방식에서는 order-service가 Saga orchestrator 역할을 한다.
-        // 각 서비스는 자기 로컬 트랜잭션만 수행하고, 다음 단계와 보상 여부는 orchestrator가 명시적으로 결정한다.
+        // order-service는 orchestration 방식에서 Saga orchestrator 역할을 맡는다.
+        // participant는 자기 로컬 트랜잭션만 수행하고,
+        // 다음 단계 호출과 보상 호출은 orchestrator가 직접 결정한다.
         PurchaseOrder order = orderStateService.markCancelRequested(orderId);
         String sagaId = "cancel-order-%d-%s".formatted(orderId, UUID.randomUUID());
         sagaRepository.save(new CancelOrderSaga(sagaId, orderId));
@@ -51,7 +55,7 @@ public class OrderCancelService {
                     failurePoint == CancelFailurePoint.INVENTORY
             );
             inventoryRestored = true;
-            markInventoryRestored(sagaId);
+            sagaStateService.markInventoryRestored(sagaId);
 
             if (failurePoint == CancelFailurePoint.AFTER_INVENTORY) {
                 throw new IllegalStateException("Simulated failure after inventory restore");
@@ -59,19 +63,19 @@ public class OrderCancelService {
 
             paymentClient.refund(
                     new PaymentRefundRequest(order.getId(), order.getPaymentId(), order.getAmount(), sagaId + ":payment-refund"),
-                    failurePoint == CancelFailurePoint.PAYMENT
+                    shouldFailPayment(failurePoint)
             );
             paymentRefunded = true;
-            markPaymentRefunded(sagaId);
+            sagaStateService.markPaymentRefunded(sagaId);
 
             orderStateService.completeCancel(orderId);
-            markCompleted(sagaId);
+            sagaStateService.markCompleted(sagaId);
             return new CancelOrderResponse(orderId, "CANCELLED", true, true, "orchestrated saga completed. sagaId=" + sagaId);
         } catch (RuntimeException exception) {
             if (inventoryRestored && !paymentRefunded) {
                 compensateInventory(order, sagaId, failurePoint, exception.getMessage());
             } else {
-                markFailed(sagaId, exception.getMessage());
+                sagaStateService.markFailed(sagaId, exception.getMessage());
             }
 
             orderStateService.failCancel(orderId);
@@ -90,45 +94,24 @@ public class OrderCancelService {
         return sagaRepository.findAll();
     }
 
-    @Transactional
-    public void markInventoryRestored(String sagaId) {
-        find(sagaId).markInventoryRestored();
-    }
-
-    @Transactional
-    public void markPaymentRefunded(String sagaId) {
-        find(sagaId).markPaymentRefunded();
-    }
-
-    @Transactional
-    public void markCompleted(String sagaId) {
-        find(sagaId).markCompleted();
-    }
-
-    @Transactional
-    public void markInventoryCompensated(String sagaId, String reason) {
-        find(sagaId).markInventoryCompensated(reason);
-    }
-
-    @Transactional
-    public void markFailed(String sagaId, String reason) {
-        find(sagaId).markFailed(reason);
-    }
-
     private void compensateInventory(PurchaseOrder order, String sagaId, CancelFailurePoint failurePoint, String reason) {
         try {
             inventoryClient.deduct(
                     new InventoryDeductRequest(order.getId(), order.getSku(), order.getQuantity(), sagaId + ":inventory-compensation"),
                     failurePoint == CancelFailurePoint.INVENTORY_COMPENSATION
             );
-            markInventoryCompensated(sagaId, reason);
+            sagaStateService.markInventoryCompensated(sagaId, reason);
         } catch (RuntimeException compensationException) {
-            markFailed(sagaId, "payment failed: %s, inventory compensation failed: %s".formatted(reason, compensationException.getMessage()));
+            sagaStateService.markFailed(
+                    sagaId,
+                    "payment failed: %s, inventory compensation failed: %s".formatted(reason, compensationException.getMessage())
+            );
         }
     }
 
-    private CancelOrderSaga find(String sagaId) {
-        return sagaRepository.findById(sagaId)
-                .orElseThrow(() -> new IllegalArgumentException("Cancel order saga not found. sagaId=" + sagaId));
+    private boolean shouldFailPayment(CancelFailurePoint failurePoint) {
+        // 보상 실패를 재현하려면 먼저 환불 단계에서 실패해 보상 흐름에 진입해야 한다.
+        return failurePoint == CancelFailurePoint.PAYMENT
+                || failurePoint == CancelFailurePoint.INVENTORY_COMPENSATION;
     }
 }
