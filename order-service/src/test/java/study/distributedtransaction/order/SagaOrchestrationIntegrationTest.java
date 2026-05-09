@@ -141,6 +141,29 @@ class SagaOrchestrationIntegrationTest {
     }
 
     @Test
+    void cancelOrderCompensatesInventoryWhenFailureOccursAfterInventoryRestore() {
+        CancelOrderResponse response = cancelOrder("AFTER_INVENTORY");
+
+        PurchaseOrder order = orderRepository().findById(1L).orElseThrow();
+        InventoryItem item = inventoryRepository().findById("SKU-001").orElseThrow();
+        Payment payment = paymentRepository().findById("PAY-100").orElseThrow();
+        CancelOrderSaga saga = sagaRepository().findAll().get(0);
+
+        assertThat(response.status()).isEqualTo("CANCEL_FAILED");
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCEL_FAILED);
+        assertThat(item.getStock()).isEqualTo(8);
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
+        assertThat(payment.getRefundedAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(saga.getStatus()).isEqualTo(CancelOrderSagaStatus.INVENTORY_COMPENSATED);
+        assertThat(saga.isInventoryRestored()).isTrue();
+        assertThat(saga.isPaymentRefunded()).isFalse();
+        assertThat(saga.isInventoryCompensated()).isTrue();
+        assertThat(restoreOperationRepository().count()).isEqualTo(1);
+        assertThat(refundOperationRepository().count()).isZero();
+        assertThat(deductOperationRepository().count()).isEqualTo(1);
+    }
+
+    @Test
     void cancelOrderLeavesRestoredInventoryWhenCompensationAlsoFails() {
         CancelOrderResponse response = cancelOrder("INVENTORY_COMPENSATION");
 

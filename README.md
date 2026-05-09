@@ -4,11 +4,11 @@
 
 주문 취소는 하나의 작업처럼 보이지만 실제로는 여러 서비스가 나누어 처리한다.
 
-- `order-service`는 주문 상태를 바꾼다.
+- `order-service`는 주문 상태를 변경한다.
 - `inventory-service`는 재고를 복구하거나 다시 차감한다.
 - `payment-service`는 환불을 처리한다.
 
-이 브랜치에서는 `order-service`가 **orchestrator** 역할을 맡아 전체 흐름을 직접 조정한다.
+이 브랜치에서는 `order-service`가 **orchestrator** 역할을 맡아 전체 흐름을 직접 제어한다.
 
 ## Services
 
@@ -26,17 +26,15 @@
 
 1. `order-service`가 주문 상태를 `CANCEL_REQUESTED`로 변경한다.
 2. `order-service`가 Saga 로그를 생성한다.
-3. `order-service`가 `inventory-service`에 재고 복구를 명령한다.
-4. `order-service`가 `payment-service`에 환불을 명령한다.
-5. 환불이 성공하면 주문 상태를 `CANCELLED`로 바꾼다.
-6. 환불이 실패하면 `inventory-service`에 재고 차감 보상을 명령한다.
+3. `order-service`가 `inventory-service`에 재고 복구를 요청한다.
+4. `order-service`가 `payment-service`에 환불을 요청한다.
+5. 환불이 성공하면 주문 상태를 `CANCELLED`로 변경한다.
+6. 환불이 실패하면 `inventory-service`에 재고 차감 보상을 요청한다.
 7. 보상 결과에 따라 Saga 상태와 주문 상태를 마무리한다.
 
-핵심은 participant가 스스로 다음 단계를 이어가는 것이 아니라, orchestrator가 다음 호출과 보상 호출을 직접 결정한다는 점이다.
+participant가 스스로 다음 단계를 이어가는 것이 아니라, orchestrator가 다음 호출과 보상 호출을 직접 결정한다는 점이 핵심이다.
 
 ## Code Structure
-
-이 브랜치의 구조는 역할이 비교적 단순하다.
 
 ### order-service
 
@@ -47,9 +45,11 @@
   - 재고 복구, 환불, 보상 차감 호출 순서를 제어한다.
   - Saga 상태를 기록한다.
 - `OrderStateService`
-  - order DB의 로컬 트랜잭션을 담당한다.
+  - order DB에 대한 로컬 트랜잭션을 담당한다.
 - `CancelOrderSaga`
   - orchestration 진행 상태를 저장한다.
+- `CancelOrderSagaStateService`
+  - Saga 상태 갱신용 로컬 트랜잭션을 담당한다.
 
 ### inventory-service
 
@@ -77,8 +77,7 @@
 - `inventory-service`: 재고 복구, 재고 차감
 - `payment-service`: 환불 처리
 
-실패 시에는 과거 트랜잭션을 롤백하지 않는다.
-이미 성공한 작업을 되돌리기 위해 새로운 로컬 트랜잭션으로 반대 동작을 수행한다.
+실패 시에는 과거 트랜잭션을 롤백하지 않고, 이미 성공한 작업을 되돌리기 위해 새로운 로컬 트랜잭션으로 반대 동작을 수행한다.
 
 예를 들어:
 
@@ -106,16 +105,22 @@
 Invoke-RestMethod -Method Post http://localhost:8081/orders/1/cancel
 ```
 
-환불 실패 후 보상:
-
-```powershell
-Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=PAYMENT"
-```
-
 재고 복구 실패:
 
 ```powershell
 Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=INVENTORY"
+```
+
+재고 복구 후 orchestrator 내부 실패:
+
+```powershell
+Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=AFTER_INVENTORY"
+```
+
+환불 실패 후 보상:
+
+```powershell
+Invoke-RestMethod -Method Post "http://localhost:8081/orders/1/cancel?failAt=PAYMENT"
 ```
 
 보상 트랜잭션 실패:
@@ -138,11 +143,12 @@ Invoke-RestMethod http://localhost:8083/payments/refund-operations
 
 ## Test
 
-통합 테스트는 `order-service` 기준으로 작성한다.
+통합 테스트는 `order-service` 기준으로 작성했다.
 
 - `SagaOrchestrationIntegrationTest`
   - 정상 취소
   - 재고 복구 실패
+  - 재고 복구 후 orchestrator 내부 실패
   - 환불 실패 후 보상 성공
   - 환불 실패 후 보상 실패
 
@@ -152,7 +158,7 @@ Invoke-RestMethod http://localhost:8083/payments/refund-operations
 .\gradlew.bat test --tests study.distributedtransaction.order.SagaOrchestrationIntegrationTest
 ```
 
-테스트는 서비스 3개를 함께 띄운 뒤 HTTP 호출로 실제 orchestration 흐름을 검증한다.
+테스트는 서비스 3개를 각각 띄운 뒤 HTTP 호출로 실제 orchestration 흐름을 검증한다.
 
 ## H2 Console
 

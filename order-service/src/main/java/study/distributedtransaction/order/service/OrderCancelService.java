@@ -51,7 +51,12 @@ public class OrderCancelService {
 
         try {
             inventoryClient.restore(
-                    new InventoryRestoreRequest(order.getId(), order.getSku(), order.getQuantity(), sagaId + ":inventory-restore"),
+                    new InventoryRestoreRequest(
+                            order.getId(),
+                            order.getSku(),
+                            order.getQuantity(),
+                            sagaId + ":inventory-restore"
+                    ),
                     failurePoint == CancelFailurePoint.INVENTORY
             );
             inventoryRestored = true;
@@ -62,7 +67,12 @@ public class OrderCancelService {
             }
 
             paymentClient.refund(
-                    new PaymentRefundRequest(order.getId(), order.getPaymentId(), order.getAmount(), sagaId + ":payment-refund"),
+                    new PaymentRefundRequest(
+                            order.getId(),
+                            order.getPaymentId(),
+                            order.getAmount(),
+                            sagaId + ":payment-refund"
+                    ),
                     shouldFailPayment(failurePoint)
             );
             paymentRefunded = true;
@@ -70,7 +80,13 @@ public class OrderCancelService {
 
             orderStateService.completeCancel(orderId);
             sagaStateService.markCompleted(sagaId);
-            return new CancelOrderResponse(orderId, "CANCELLED", true, true, "orchestrated saga completed. sagaId=" + sagaId);
+            return new CancelOrderResponse(
+                    orderId,
+                    "CANCELLED",
+                    true,
+                    true,
+                    "orchestrated saga completed. sagaId=" + sagaId
+            );
         } catch (RuntimeException exception) {
             if (inventoryRestored && !paymentRefunded) {
                 compensateInventory(order, sagaId, failurePoint, exception.getMessage());
@@ -94,23 +110,34 @@ public class OrderCancelService {
         return sagaRepository.findAll();
     }
 
-    private void compensateInventory(PurchaseOrder order, String sagaId, CancelFailurePoint failurePoint, String reason) {
+    private void compensateInventory(
+            PurchaseOrder order,
+            String sagaId,
+            CancelFailurePoint failurePoint,
+            String reason
+    ) {
         try {
             inventoryClient.deduct(
-                    new InventoryDeductRequest(order.getId(), order.getSku(), order.getQuantity(), sagaId + ":inventory-compensation"),
+                    new InventoryDeductRequest(
+                            order.getId(),
+                            order.getSku(),
+                            order.getQuantity(),
+                            sagaId + ":inventory-compensation"
+                    ),
                     failurePoint == CancelFailurePoint.INVENTORY_COMPENSATION
             );
             sagaStateService.markInventoryCompensated(sagaId, reason);
         } catch (RuntimeException compensationException) {
             sagaStateService.markFailed(
                     sagaId,
-                    "payment failed: %s, inventory compensation failed: %s".formatted(reason, compensationException.getMessage())
+                    "payment failed: %s, inventory compensation failed: %s"
+                            .formatted(reason, compensationException.getMessage())
             );
         }
     }
 
     private boolean shouldFailPayment(CancelFailurePoint failurePoint) {
-        // 보상 실패를 재현하려면 먼저 환불 단계에서 실패해 보상 흐름에 진입해야 한다.
+        // 보상 실패를 재현하려면 먼저 환불 단계에서 실패해 보상 흐름으로 진입해야 한다.
         return failurePoint == CancelFailurePoint.PAYMENT
                 || failurePoint == CancelFailurePoint.INVENTORY_COMPENSATION;
     }
